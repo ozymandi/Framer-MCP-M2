@@ -28,11 +28,20 @@ Hex / rgb / rgba inputs are normalized; friendly `{ fontFamily,
 fontWeight, fontStyle }` triples are resolved to Framer's `Font`
 objects.
 
+**Phase 3 — page + node CRUD (7 tools).** Create web and design
+pages, add frames and text nodes under any parent, set arbitrary
+node attributes, remove nodes, duplicate nodes. Frame attributes
+are tiered: the typed surface (name, size, padding, gap, layout,
+border radius, background, opacity, rotation, visible) is friendly
+and forgiving; everything else reaches the node through a generic
+`fd_set_node_attributes` for capable models.
+
 Not yet (planned):
 
-- Phase 3 — page + node CRUD.
 - Phase 4 — high-level patterns (`fd_add_hero`, `fd_add_pricing_table`).
 - Phase 5 — Framer SupervisorAgent bridge.
+- Component instance creation (needs a Framer module URL rather than
+  a friendly component name).
 
 ---
 
@@ -97,7 +106,7 @@ Add a `framer-design` entry next to your existing servers in `mcp.json`:
 ```
 
 Restart the host. The model sees both tool sets in parallel — `framer_*`
-(15–22) for CMS and `fd_*` (16) for design.
+(15–22) for CMS and `fd_*` (23) for design.
 
 > For `fd_screenshot` to be useful, the connected model must be
 > multimodal. Claude (Desktop) is. Gemma 4 is. Older non-vision local
@@ -138,6 +147,33 @@ Color inputs accepted: `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb(...)`,
 
 Style lookups in update / remove are tolerant of case and separators:
 `"H1"`, `"h1"`, `"h 1"`, `"Headers/H1"` all resolve to the same style.
+
+### Phase 3 — page + node CRUD (7)
+
+| Tool | Purpose |
+|------|---------|
+| `fd_create_web_page` | New web page at the given path (e.g. `/about`). |
+| `fd_create_design_page` | New design page (free-form canvas). |
+| `fd_add_frame` | Container under a parent, with tiered typed attributes. |
+| `fd_add_text` | Text node under a parent, with optional textStyle binding. |
+| `fd_set_node_attributes` | Generic raw `setAttributes` for any node — covers Tier 2/3. |
+| `fd_remove_node` | Destructive delete (cascades to children). |
+| `fd_duplicate_node` | Clone a node next to it in the tree. |
+
+Frame attribute inputs are friendly:
+
+- `width` / `height`: number → `"Npx"`; strings (`"100%"`, `"1fr"`,
+  `"fit-content"`) pass through.
+- `padding`: single value, or `{ top, right, bottom, left }`, or
+  `{ vertical, horizontal }`.
+- `borderRadius`: single value, or per-corner object.
+- `gap`: single value, or `{ row, column }`.
+- `layout`: `"none" | "stack" | "grid"`, or wrapped `{ type }`.
+- `backgroundColor`: `#hex` / `rgb(...)` / `rgba(...)` OR the name of an
+  existing color style (server resolves and binds it).
+
+`parent` accepts a node id, a web page path, or a design page name —
+same resolution as Phase 1 inspect / screenshot tools.
 
 ---
 
@@ -180,6 +216,9 @@ Modules under `src/`:
 - `font-resolver.ts` — `{ family, weight?, style? }` → SDK `Font`.
 - `style-lookup.ts` — find a color or text style by name with
   normalize-tolerance.
+- `attr-builder.ts` — friendly frame / text attribute inputs to SDK
+  shapes (length / padding / radius normalization, color style binding,
+  layout discriminator).
 - `tools/` — one file per MCP tool; `index.ts` registers them.
 
 ---
@@ -194,6 +233,10 @@ Modules under `src/`:
 - Renaming styles is not exposed — it can silently break references.
 - Custom (uploaded) fonts are not visible to the SDK; only Framer's
   built-in catalog (`getFonts()`) is.
+- Component instance creation requires a Framer component module URL
+  rather than a friendly component name — deferred to a later phase.
+- Reparenting a node (moving it under a different parent) is not yet
+  surfaced; for now duplicate + remove + recreate at the new parent.
 
 ---
 
