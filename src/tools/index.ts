@@ -9,8 +9,16 @@ import { registerListColorStyles } from "./list-color-styles.js";
 import { registerListTextStyles } from "./list-text-styles.js";
 import { registerListComponents } from "./list-components.js";
 import { registerListFonts } from "./list-fonts.js";
+// Phase 2 — token writes.
+import { registerCreateColorStyle } from "./create-color-style.js";
+import { registerUpdateColorStyle } from "./update-color-style.js";
+import { registerRemoveColorStyle } from "./remove-color-style.js";
+import { registerCreateTextStyle } from "./create-text-style.js";
+import { registerUpdateTextStyle } from "./update-text-style.js";
+import { registerRemoveTextStyle } from "./remove-text-style.js";
 
 export function registerAllTools(server: McpServer): void {
+  // Phase 1 — read-only.
   registerListProjects(server);
   registerStatus(server);
   registerListPages(server);
@@ -21,4 +29,11 @@ export function registerAllTools(server: McpServer): void {
   registerListTextStyles(server);
   registerListComponents(server);
   registerListFonts(server);
+  // Phase 2 — token writes.
+  registerCreateColorStyle(server);
+  registerUpdateColorStyle(server);
+  registerRemoveColorStyle(server);
+  registerCreateTextStyle(server);
+  registerUpdateTextStyle(server);
+  registerRemoveTextStyle(server);
 }

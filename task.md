@@ -13,6 +13,28 @@ prefixed `fd_`.
 The MCP itself never calls an LLM. The connected client model is the
 generator; this server is the writer / inspector.
 
+## Scope — v0.2 (Phase 2 adds token writes)
+
+On top of Phase 1's read tools, six write tools for design-token
+maintenance:
+
+- `fd_create_color_style` — `{ name, light, dark? }`. Accepts hex
+  (#rgb, #rrggbb, #rrggbbaa), rgb(...), rgba(...). Server normalises
+  to Framer's rgba(R, G, B, A).
+- `fd_update_color_style` — partial update by name.
+- `fd_remove_color_style` — delete by name.
+- `fd_create_text_style` — `{ name, tag?, fontFamily?, fontWeight?,
+  fontStyle?, fontSize?, lineHeight?, letterSpacing? }`. The
+  fontFamily / weight / style trio is resolved to a Framer Font via
+  the SDK; unknown families error with a Did-you-mean.
+- `fd_update_text_style` — partial update by name.
+- `fd_remove_text_style` — delete by name.
+
+Out of scope for Phase 2:
+- Binding a color to a text style.
+- Text style responsive breakpoints.
+- Renaming styles via setAttributes (risk: breaks references).
+
 ## Scope — v0.1 (Phase 1, read-only)
 
 Visual eyes for the model. Zero risk of breaking the design, easy to
