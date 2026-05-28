@@ -16,6 +16,14 @@ import { registerRemoveColorStyle } from "./remove-color-style.js";
 import { registerCreateTextStyle } from "./create-text-style.js";
 import { registerUpdateTextStyle } from "./update-text-style.js";
 import { registerRemoveTextStyle } from "./remove-text-style.js";
+// Phase 3 — page + node CRUD.
+import { registerCreateWebPage } from "./create-web-page.js";
+import { registerCreateDesignPage } from "./create-design-page.js";
+import { registerAddFrame } from "./add-frame.js";
+import { registerAddText } from "./add-text.js";
+import { registerSetNodeAttributes } from "./set-node-attributes.js";
+import { registerRemoveNode } from "./remove-node.js";
+import { registerDuplicateNode } from "./duplicate-node.js";
 
 export function registerAllTools(server: McpServer): void {
   // Phase 1 — read-only.
@@ -36,4 +44,12 @@ export function registerAllTools(server: McpServer): void {
   registerCreateTextStyle(server);
   registerUpdateTextStyle(server);
   registerRemoveTextStyle(server);
+  // Phase 3 — page + node CRUD.
+  registerCreateWebPage(server);
+  registerCreateDesignPage(server);
+  registerAddFrame(server);
+  registerAddText(server);
+  registerSetNodeAttributes(server);
+  registerRemoveNode(server);
+  registerDuplicateNode(server);
 }
