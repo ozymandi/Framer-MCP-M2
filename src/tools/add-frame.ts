@@ -36,7 +36,17 @@ const borderRadiusSchema: z.ZodType<FriendlyBorderRadius> = z.union([
 
 const layoutSchema: z.ZodType<FriendlyLayout> = z.union([
   z.enum(["none", "stack", "grid"]),
-  z.object({ type: z.enum(["none", "stack", "grid"]) }),
+  z.object({
+    type: z.enum(["none", "stack", "grid"]),
+    direction: z.enum(["horizontal", "vertical"]).optional(),
+    distribute: z
+      .enum(["start", "center", "end", "space-between", "space-around", "space-evenly"])
+      .optional(),
+    align: z.enum(["start", "center", "end"]).optional(),
+    wrap: z.boolean().optional(),
+    columns: z.union([z.number().int().min(1), z.literal("auto-fill")]).optional(),
+    rows: z.number().int().min(1).optional(),
+  }) as z.ZodType<FriendlyLayout>,
 ]);
 
 export function registerAddFrame(server: McpServer): void {
@@ -75,7 +85,16 @@ export function registerAddFrame(server: McpServer): void {
             z.object({ row: lengthSchema.optional(), column: lengthSchema.optional() }),
           ])
           .optional(),
-        layout: layoutSchema.optional().describe("'none' | 'stack' | 'grid', or { type: ... }."),
+        layout: layoutSchema
+          .optional()
+          .describe(
+            "Either 'none' | 'stack' | 'grid', or an object. Stack object: " +
+              "{ type: 'stack', direction: 'horizontal'|'vertical' (default 'vertical'), " +
+              "distribute: 'start'|'center'|'end'|'space-between'|..., align: 'start'|'center'|'end' }. " +
+              "Grid object: { type: 'grid', columns: number|'auto-fill', rows?: number }. " +
+              "IMPORTANT: Framer's raw default stack direction is horizontal; this builder defaults to vertical " +
+              "because that's what you usually want for page sections. Override with `direction: 'horizontal'`.",
+          ),
       },
     },
     async ({ project, parent, ...rest }) => {

@@ -24,13 +24,29 @@ export type FriendlyBorderRadius =
   | string
   | { topLeft?: number | string; topRight?: number | string; bottomRight?: number | string; bottomLeft?: number | string };
 
+export type StackDistributionValue =
+  | "start"
+  | "center"
+  | "end"
+  | "space-between"
+  | "space-around"
+  | "space-evenly";
+
+export type StackAlignmentValue = "start" | "center" | "end";
+
 export type FriendlyLayout =
   | "none"
   | "stack"
   | "grid"
   | { type: "none" }
-  | { type: "stack"; direction?: "horizontal" | "vertical" }
-  | { type: "grid"; columns?: number };
+  | {
+      type: "stack";
+      direction?: "horizontal" | "vertical";
+      distribute?: StackDistributionValue;
+      align?: StackAlignmentValue;
+      wrap?: boolean;
+    }
+  | { type: "grid"; columns?: number | "auto-fill"; rows?: number };
 
 /** Friendly attribute payload accepted from clients. */
 export interface FriendlyFrameAttrs {
@@ -101,15 +117,39 @@ function buildGap(input: number | string | { row?: number | string; column?: num
   throw new AttrBuildError("Gap object must have `row` and/or `column`.");
 }
 
-function buildLayout(input: FriendlyLayout): "stack" | "grid" | null {
+/**
+ * Translate a friendly layout into the *set* of SDK attributes that
+ * actually configure it: `layout`, plus stack/grid sub-attributes.
+ *
+ * Defaults for stack: vertical direction (Framer's default is horizontal,
+ * which is rarely what you want for page sections).
+ */
+function buildLayout(input: FriendlyLayout): Record<string, unknown> {
   if (typeof input === "string") {
-    if (input === "none") return null;
-    if (input === "stack") return "stack";
-    if (input === "grid") return "grid";
+    if (input === "none") return { layout: null };
+    if (input === "stack") {
+      return { layout: "stack", stackDirection: "vertical" };
+    }
+    if (input === "grid") return { layout: "grid" };
     throw new AttrBuildError(`Unknown layout '${input}'.`);
   }
-  if (input.type === "none") return null;
-  if (input.type === "stack" || input.type === "grid") return input.type;
+  if (input.type === "none") return { layout: null };
+  if (input.type === "stack") {
+    const out: Record<string, unknown> = {
+      layout: "stack",
+      stackDirection: input.direction ?? "vertical",
+    };
+    if (input.distribute !== undefined) out["stackDistribution"] = input.distribute;
+    if (input.align !== undefined) out["stackAlignment"] = input.align;
+    if (input.wrap !== undefined) out["stackWrapEnabled"] = input.wrap;
+    return out;
+  }
+  if (input.type === "grid") {
+    const out: Record<string, unknown> = { layout: "grid" };
+    if (input.columns !== undefined) out["gridColumnCount"] = input.columns;
+    if (input.rows !== undefined) out["gridRowCount"] = input.rows;
+    return out;
+  }
   throw new AttrBuildError(`Unknown layout type.`);
 }
 
@@ -165,7 +205,9 @@ export async function buildFrameAttributes(
   if (input.borderRadius !== undefined) out["borderRadius"] = buildBorderRadius(input.borderRadius);
   if (input.padding !== undefined) out["padding"] = buildPadding(input.padding);
   if (input.gap !== undefined) out["gap"] = buildGap(input.gap);
-  if (input.layout !== undefined) out["layout"] = buildLayout(input.layout);
+  if (input.layout !== undefined) {
+    Object.assign(out, buildLayout(input.layout));
+  }
   return out;
 }
 
