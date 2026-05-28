@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { AttrBuildError, resolveColorRef } from "../attr-builder.js";
 import { FontResolveError, resolveFont } from "../font-resolver.js";
 import { findTextStyleByName } from "../style-lookup.js";
 import { errorResult, jsonResult, resolveProject } from "../helpers.js";
@@ -22,6 +23,12 @@ export function registerUpdateTextStyle(server: McpServer): void {
         fontSize: z.string().optional(),
         lineHeight: z.string().optional(),
         letterSpacing: z.string().optional(),
+        color: z
+          .string()
+          .optional()
+          .describe(
+            "Text color: #hex, rgb(...), rgba(...), or an existing color-style name.",
+          ),
       },
     },
     async ({
@@ -34,6 +41,7 @@ export function registerUpdateTextStyle(server: McpServer): void {
       fontSize,
       lineHeight,
       letterSpacing,
+      color,
     }) => {
       const proj = await resolveProject(project);
       if (!proj.ok) return errorResult(proj.error);
@@ -61,6 +69,15 @@ export function registerUpdateTextStyle(server: McpServer): void {
         return errorResult(
           "`fontWeight` and `fontStyle` only apply when `fontFamily` is also provided.",
         );
+      }
+
+      if (color !== undefined) {
+        try {
+          patch["color"] = await resolveColorRef(framer, color);
+        } catch (err) {
+          if (err instanceof AttrBuildError) return errorResult(`color: ${err.message}`);
+          throw err;
+        }
       }
 
       if (Object.keys(patch).length === 0) {

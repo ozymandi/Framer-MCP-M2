@@ -154,11 +154,35 @@ function buildLayout(input: FriendlyLayout): Record<string, unknown> {
 }
 
 /**
- * Resolve a backgroundColor friendly input to the form Framer expects:
+ * Resolve a friendly color string into the form Framer expects:
  * either an RGBA string or a ColorStyle instance.
  *
  * Accepts hex / rgb / rgba strings, or a color-style name / path.
+ * Exported so other tools can reuse the same logic for any color attribute.
  */
+export async function resolveColorRef(
+  framer: Framer,
+  value: string,
+): Promise<unknown> {
+  const trimmed = value.trim();
+  // Likely raw color literal.
+  if (trimmed.startsWith("#") || /^rgba?\s*\(/i.test(trimmed)) {
+    try {
+      return toFramerRgba(trimmed);
+    } catch (err) {
+      if (err instanceof ColorParseError) throw new AttrBuildError(err.message);
+      throw err;
+    }
+  }
+  const lookup = await findColorStyleByName(framer, trimmed);
+  if (!lookup.ok) {
+    throw new AttrBuildError(
+      `${lookup.error} (If you meant a literal color, prefix it with '#' or use rgb()/rgba().)`,
+    );
+  }
+  return lookup.style;
+}
+
 async function resolveBackgroundColor(
   framer: Framer,
   value: string,

@@ -2,7 +2,10 @@ import type { Framer } from "./framer-client.js";
 import { suggestName } from "./helpers.js";
 
 function normalize(s: string): string {
-  return s.toLowerCase().replace(/[\s_-]+/g, "");
+  // Lowercase + drop ASCII whitespace, underscores, hyphens.
+  // Also strip a leading slash so callers writing "Display/Hero" match a
+  // stored path of "/Display/Hero".
+  return s.toLowerCase().replace(/[\s_-]+/g, "").replace(/^\/+/, "");
 }
 
 export interface ColorStyleRef {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { AttrBuildError, resolveColorRef } from "../attr-builder.js";
 import { FontResolveError, resolveFont } from "../font-resolver.js";
 import { errorResult, jsonResult, resolveProject } from "../helpers.js";
 
@@ -9,9 +10,9 @@ export function registerCreateTextStyle(server: McpServer): void {
     {
       description:
         "Create a new text style (typography token). Optionally bind a font via " +
-        "fontFamily/fontWeight/fontStyle — server looks up the matching Font through " +
-        "the Framer API. Color is intentionally not set here; bind colors via the canvas " +
-        "or a later iteration. Use '/' in `name` to nest into folders (e.g. 'Headers/H1').",
+        "fontFamily/fontWeight/fontStyle — server looks up the matching Font. " +
+        "Optionally bind a color via hex/rgba string or an existing color-style name. " +
+        "Use '/' in `name` to nest into folders (e.g. 'Headers/H1').",
       inputSchema: {
         project: z.string().optional().describe("Project alias. Required in multi-project mode."),
         name: z.string().min(1).describe("Display name. Use '/' for folder nesting."),
@@ -22,6 +23,13 @@ export function registerCreateTextStyle(server: McpServer): void {
         fontSize: z.string().optional().describe("Font size with unit, e.g. '32px' or '2rem'."),
         lineHeight: z.string().optional().describe("Line height, e.g. '1.4' or '40px'."),
         letterSpacing: z.string().optional().describe("Letter spacing, e.g. '-0.02em'."),
+        color: z
+          .string()
+          .optional()
+          .describe(
+            "Optional text color: #hex, rgb(...), rgba(...), OR the name of an " +
+              "existing color style.",
+          ),
       },
     },
     async ({
@@ -34,6 +42,7 @@ export function registerCreateTextStyle(server: McpServer): void {
       fontSize,
       lineHeight,
       letterSpacing,
+      color,
     }) => {
       const proj = await resolveProject(project);
       if (!proj.ok) return errorResult(proj.error);
@@ -61,6 +70,15 @@ export function registerCreateTextStyle(server: McpServer): void {
         return errorResult(
           "`fontWeight` and `fontStyle` only apply when `fontFamily` is provided.",
         );
+      }
+
+      if (color) {
+        try {
+          attrs["color"] = await resolveColorRef(framer, color);
+        } catch (err) {
+          if (err instanceof AttrBuildError) return errorResult(`color: ${err.message}`);
+          throw err;
+        }
       }
 
       try {
