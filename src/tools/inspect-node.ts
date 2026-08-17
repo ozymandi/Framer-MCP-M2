@@ -92,10 +92,7 @@ export function registerInspectNode(server: McpServer): void {
       const resolved = await resolveNodeTarget(framer, target);
       if (!resolved.ok) return errorResult(resolved.error);
 
-      const node = await framer.getNode(resolved.nodeId);
-      if (!node) return errorResult(`Node ${resolved.nodeId} not found.`);
-
-      const tree = await walk(node, depth ?? 2, framer);
+      const tree = await walk(resolved.node, depth ?? 2, framer);
       return jsonResult({
         target: resolved.label,
         kind: resolved.kind,

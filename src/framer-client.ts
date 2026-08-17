@@ -30,6 +30,10 @@ export function getFramer(alias: string): Promise<Framer> {
     return Promise.reject(new Error(`Project alias '${alias}' is not configured.`));
   }
   const p = connect(project.url, project.apiKey);
+  // Evict failed connections so the next call retries instead of replaying the rejection.
+  p.catch(() => {
+    if (framerPromises.get(norm) === p) framerPromises.delete(norm);
+  });
   framerPromises.set(norm, p);
   return p;
 }

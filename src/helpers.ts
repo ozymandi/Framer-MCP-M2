@@ -104,6 +104,119 @@ function distance(a: string, b: string): number {
   return prev[n] ?? 0;
 }
 
+interface WalkableNode {
+  id: string;
+  constructor: { name?: string };
+  getChildren: () => Promise<unknown[]>;
+}
+
+/**
+ * Find a node by raw id anywhere in the project.
+ *
+ * framer.getNode(id) returns null for child nodes inside web pages, so when it
+ * misses we query every node type project-wide (getNodesWithType does descend
+ * into pages) and match by id. As a last resort — for node types not covered
+ * by the typed queries — walk every page/component tree breadth-first.
+ */
+export async function findNodeById(framer: Framer, id: string): Promise<WalkableNode | null> {
+  const direct = await framer.getNode(id);
+  if (direct) return direct as unknown as WalkableNode;
+
+  const typed = (await Promise.all([
+    framer.getNodesWithType("FrameNode"),
+    framer.getNodesWithType("TextNode"),
+    framer.getNodesWithType("SVGNode"),
+    framer.getNodesWithType("ComponentInstanceNode"),
+    framer.getNodesWithType("WebPageNode"),
+    framer.getNodesWithType("DesignPageNode"),
+    framer.getNodesWithType("ComponentNode"),
+  ])) as unknown as WalkableNode[][];
+  for (const nodes of typed) {
+    const hit = nodes.find((n) => n.id === id);
+    if (hit) return hit;
+  }
+
+  let level: WalkableNode[] = [...typed[4]!, ...typed[5]!, ...typed[6]!];
+  while (level.length > 0) {
+    const childLists = (await Promise.all(level.map((n) => n.getChildren()))) as WalkableNode[][];
+    level = childLists.flat();
+    const hit = level.find((n) => n.id === id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+interface PageLikeNode extends WalkableNode {
+  path?: string | null;
+  collectionId?: string | null;
+}
+
+/**
+ * Climb getParent() from a node up to its containing WebPageNode, or null when
+ * the node lives outside a web page (design page, component, detached).
+ */
+export async function pageOfNode(framer: Framer, node: WalkableNode): Promise<PageLikeNode | null> {
+  let current = node as WalkableNode & { getParent?: () => Promise<unknown> };
+  for (let i = 0; i < 50; i++) {
+    if (current.constructor.name === "WebPageNode") return current as PageLikeNode;
+    if (typeof current.getParent !== "function") return null;
+    const parent = (await current.getParent()) as (WalkableNode & { getParent?: () => Promise<unknown> }) | null;
+    if (!parent) return null;
+    current = parent;
+  }
+  return null;
+}
+
+/**
+ * Convert a WebPageNode into the pagePath form the framer.agent API expects.
+ * Static pages pass through ("/about"). CMS detail pages use the collection
+ * NAME as the slug segment ("/news/:News"), while WebPageNode.path reports
+ * ":slug" — so we swap the dynamic segment using the page's collectionId.
+ */
+export async function agentPagePath(framer: Framer, page: PageLikeNode): Promise<string | null> {
+  const path = page.path ?? null;
+  if (!path) return null;
+  if (!path.includes(":")) return path;
+  const collectionId = page.collectionId ?? null;
+  if (!collectionId) return path;
+  const collections = (await framer.getCollections()) as { id: string; name: string }[];
+  const collection = collections.find((c) => c.id === collectionId);
+  if (!collection) return path;
+  return path.replace(/:[^/]+$/, `:${collection.name}`);
+}
+
+/**
+ * Find the agent pagePath of the web page containing a node.
+ *
+ * Fast path climbs getParent() — but as of framer-api 0.1.29 getParent()
+ * returns null for nodes on pages that are not open, so we fall back to
+ * probing each web page with agent.getNode({id}, {pagePath}).
+ */
+export async function agentPagePathOfNode(
+  framer: Framer,
+  node: WalkableNode,
+): Promise<string | null> {
+  const page = await pageOfNode(framer, node);
+  if (page) return agentPagePath(framer, page);
+
+  const agent = (framer as unknown as {
+    agent: {
+      getNode: (input: { id: string }, o?: { pagePath?: string }) => Promise<unknown>;
+    };
+  }).agent;
+  const pages = (await framer.getNodesWithType("WebPageNode")) as unknown as PageLikeNode[];
+  for (const candidate of pages) {
+    const pagePath = await agentPagePath(framer, candidate);
+    if (!pagePath) continue;
+    try {
+      if (await agent.getNode({ id: node.id }, { pagePath })) return pagePath;
+    } catch {
+      // Page not addressable via the agent API — keep scanning.
+    }
+  }
+  return null;
+}
+
 /**
  * Resolve a user-facing target string into a node id.
  *
@@ -111,12 +224,14 @@ function distance(a: string, b: string): number {
  *  - Web page path: "/about", "/blog/[post]" (matched against WebPageNode.path)
  *  - Design page name: "Components" (matched against DesignPageNode.name)
  *  - Component name: matched against ComponentNode.componentName
- *  - Raw node id (anything else passes through to framer.getNode)
+ *  - Raw node id (anything else is looked up via findNodeById)
  */
 export async function resolveNodeTarget(
   framer: Framer,
   target: string,
-): Promise<{ ok: true; nodeId: string; kind: string; label: string } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; nodeId: string; kind: string; label: string; node: unknown } | { ok: false; error: string }
+> {
   if (target.startsWith("/")) {
     const pages = await framer.getNodesWithType("WebPageNode");
     const found = pages.find((p: { path: string | null }) => p.path === target);
@@ -130,14 +245,14 @@ export async function resolveNodeTarget(
           (hint ? ` Did you mean '${hint}'?` : ` Known: ${known.join(", ")}.`),
       };
     }
-    return { ok: true, nodeId: (found as { id: string }).id, kind: "WebPageNode", label: target };
+    return { ok: true, nodeId: (found as { id: string }).id, kind: "WebPageNode", label: target, node: found };
   }
 
   // Try design page by name.
   const designPages = await framer.getNodesWithType("DesignPageNode");
   const designHit = designPages.find((p: { name: string | null }) => p.name === target);
   if (designHit) {
-    return { ok: true, nodeId: (designHit as { id: string }).id, kind: "DesignPageNode", label: target };
+    return { ok: true, nodeId: (designHit as { id: string }).id, kind: "DesignPageNode", label: target, node: designHit };
   }
 
   // Try component by name.
@@ -146,14 +261,14 @@ export async function resolveNodeTarget(
     (c: { componentName: string | null }) => c.componentName === target,
   );
   if (compHit) {
-    return { ok: true, nodeId: (compHit as { id: string }).id, kind: "ComponentNode", label: target };
+    return { ok: true, nodeId: (compHit as { id: string }).id, kind: "ComponentNode", label: target, node: compHit };
   }
 
   // Fall back: treat as raw node id.
-  const node = await framer.getNode(target);
+  const node = await findNodeById(framer, target);
   if (node) {
-    const kind = (node.constructor as { name?: string }).name ?? "Node";
-    return { ok: true, nodeId: target, kind, label: target };
+    const kind = node.constructor.name ?? "Node";
+    return { ok: true, nodeId: target, kind, label: target, node };
   }
 
   // No match anywhere — assemble suggestions.

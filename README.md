@@ -36,10 +36,17 @@ border radius, background, opacity, rotation, visible) is friendly
 and forgiving; everything else reaches the node through a generic
 `fd_set_node_attributes` for capable models.
 
+**Phase 4 — agent API (11 tools, framer-api 0.1.29).** Low-level DSL
+editing of any page (open or not) via `fd_apply_changes`, a two-step
+publish flow (`fd_publish` preview → confirm → deploy-to-production),
+deployment history, project branches (list/create/switch/merge/delete —
+needs a paid Framer plan), read-only ClickHouse analytics queries, the
+full component catalog (canvas + code + external), and icon sets.
+
 Not yet (planned):
 
-- Phase 4 — high-level patterns (`fd_add_hero`, `fd_add_pricing_table`).
-- Phase 5 — Framer SupervisorAgent bridge.
+- High-level patterns (`fd_add_hero`, `fd_add_pricing_table`).
+- Framer SupervisorAgent bridge.
 - Component instance creation (needs a Framer module URL rather than
   a friendly component name).
 
@@ -174,6 +181,28 @@ Frame attribute inputs are friendly:
 
 `parent` accepts a node id, a web page path, or a design page name —
 same resolution as Phase 1 inspect / screenshot tools.
+
+Raw node ids of nodes nested inside web pages resolve everywhere
+(`framer.getNode` misses those; the server falls back to typed
+project-wide queries plus a tree walk). When a node's page is not open
+in any editor, `fd_set_node_attributes` transparently writes through
+the agent DSL instead of SDK `setAttributes`.
+
+### Phase 4 — agent API (11)
+
+| Tool | Purpose |
+|------|---------|
+| `fd_apply_changes` | Agent DSL (`SET`/`DEL`/`MOVE`/`DUPE`/`+Node`) against any page. CMS detail pages use `:CollectionName` (e.g. `/news/:News`). |
+| `fd_publish` | `preview` (diagnostics + confirmationHash, no publish) → `confirm_publish` → `deploy_to_production`. |
+| `fd_list_deployments` | Recent deployments, newest first. |
+| `fd_query_analytics` | Read-only ClickHouse SQL over `events_v2` etc.; `guide=true` returns the schema doc. |
+| `fd_component_catalog` | Full component catalog (canvas/code/external/insertable); with `componentIds` returns control definitions. |
+| `fd_list_icon_sets` | Icon set names; with `setName` returns that set's icon names for `+IconNode` inserts. |
+| `fd_list_branches` | Branches + the active one. |
+| `fd_create_branch` | Create from the active branch and switch to it. *(paid plan)* |
+| `fd_switch_branch` | Switch the active branch (`main` for main). *(paid plan)* |
+| `fd_merge_branch` | Merge active branch into its base/target. *(paid plan)* |
+| `fd_delete_branch` | Delete a branch. *(paid plan)* |
 
 ---
 

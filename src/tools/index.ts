@@ -24,6 +24,14 @@ import { registerAddText } from "./add-text.js";
 import { registerSetNodeAttributes } from "./set-node-attributes.js";
 import { registerRemoveNode } from "./remove-node.js";
 import { registerDuplicateNode } from "./duplicate-node.js";
+// Phase 4 — agent API (framer-api 0.1.26): DSL writes, publish, branches, analytics.
+import { registerApplyChanges } from "./apply-changes.js";
+import { registerPublish } from "./publish.js";
+import { registerListDeployments } from "./list-deployments.js";
+import { registerBranches } from "./branches.js";
+import { registerQueryAnalytics } from "./query-analytics.js";
+import { registerComponentCatalog } from "./component-catalog.js";
+import { registerIconSets } from "./icon-sets.js";
 
 export function registerAllTools(server: McpServer): void {
   // Phase 1 — read-only.
@@ -52,4 +60,12 @@ export function registerAllTools(server: McpServer): void {
   registerSetNodeAttributes(server);
   registerRemoveNode(server);
   registerDuplicateNode(server);
+  // Phase 4 — agent API.
+  registerApplyChanges(server);
+  registerPublish(server);
+  registerListDeployments(server);
+  registerBranches(server);
+  registerQueryAnalytics(server);
+  registerComponentCatalog(server);
+  registerIconSets(server);
 }
