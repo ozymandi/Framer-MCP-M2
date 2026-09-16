@@ -36,7 +36,7 @@ border radius, background, opacity, rotation, visible) is friendly
 and forgiving; everything else reaches the node through a generic
 `fd_set_node_attributes` for capable models.
 
-**Phase 4 — agent API (11 tools, framer-api 0.1.29).** Low-level DSL
+**Phase 4 — agent API (11 tools, framer-api 5.0.0).** Low-level DSL
 editing of any page (open or not) via `fd_apply_changes`, a two-step
 publish flow (`fd_publish` preview → confirm → deploy-to-production),
 deployment history, project branches (list/create/switch/merge/delete —
@@ -196,8 +196,8 @@ the agent DSL instead of SDK `setAttributes`.
 | `fd_publish` | `preview` (diagnostics + confirmationHash, no publish) → `confirm_publish` → `deploy_to_production`. |
 | `fd_list_deployments` | Recent deployments, newest first. |
 | `fd_query_analytics` | Read-only ClickHouse SQL over `events_v2` etc.; `guide=true` returns the schema doc. |
-| `fd_component_catalog` | Full component catalog (canvas/code/external/insertable); with `componentIds` returns control definitions. |
-| `fd_list_icon_sets` | Icon set names; with `setName` returns that set's icon names for `+IconNode` inserts. |
+| `fd_component_catalog` | Full component catalog (canvas/code/external/insertable) as `{ id, displayName }` entries; with `componentIds` returns control definitions. |
+| `fd_list_icon_sets` | Icon sets as `{ id, displayName }`; with `setId` (id or displayName; `setName` still accepted) returns that set's icon names for `+IconNode` inserts. |
 | `fd_list_branches` | Branches + the active one. |
 | `fd_create_branch` | Create from the active branch and switch to it. *(paid plan)* |
 | `fd_switch_branch` | Switch the active branch (`main` for main). *(paid plan)* |

@@ -10,8 +10,10 @@ export function registerComponentCatalog(server: McpServer): void {
         "Full component catalog via the agent API — canvas components, code components " +
         "and overrides grouped by file, external components, and additional insertable " +
         "components (richer than fd_list_components, which only sees canvas ComponentNodes). " +
-        "Pass componentIds to fetch control definitions for specific components instead " +
-        "(needed to set $control__* attributes when inserting instances via fd_apply_changes).",
+        "Entries are { id, displayName }; use the id, not the displayName, for componentIds " +
+        "and for +ComponentInstance inserts. Pass componentIds to fetch control definitions " +
+        "for specific components instead (needed to set $control__* attributes when " +
+        "inserting instances via fd_apply_changes).",
       inputSchema: {
         project: z.string().optional().describe("Project alias. Required in multi-project mode."),
         componentIds: z

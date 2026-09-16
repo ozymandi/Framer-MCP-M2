@@ -2,34 +2,43 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { errorResult, jsonResult, resolveProject } from "../helpers.js";
 
+// The Framer server validates icon lookups by `iconSetId` (typia assert) and
+// accepts either the catalog `id` or the `displayName` as the value. SDK 5.0.0
+// typings still say `iconSetName`, so the shape is declared locally.
+interface IconAgent {
+  listIconSets: () => Promise<unknown>;
+  readIcons: (input: { iconSetId: string }) => Promise<string[]>;
+}
+
 export function registerIconSets(server: McpServer): void {
   server.registerTool(
     "fd_list_icon_sets",
     {
       description:
-        "List icon set names (current project, external, and additional insertable sets). " +
-        "Pass setName to get the exact icon names of one set instead — those names go into " +
-        "$control__icon when inserting +IconNode via fd_apply_changes.",
+        "List icon sets as { id, displayName } entries grouped by current project, external, " +
+        "and additional insertable sets. Pass setId (the id or displayName of one set) to get " +
+        "the exact icon names of that set instead — those names go into $control__icon when " +
+        "inserting +IconNode via fd_apply_changes.",
       inputSchema: {
         project: z.string().optional().describe("Project alias. Required in multi-project mode."),
+        setId: z
+          .string()
+          .optional()
+          .describe("Icon set id or displayName from the catalog — returns that set's icon names."),
         setName: z
           .string()
           .optional()
-          .describe("Icon set name — returns the available icon names in that set."),
+          .describe("Deprecated alias of setId (kept for older prompts and skills)."),
       },
     },
-    async ({ project, setName }) => {
+    async ({ project, setId, setName }) => {
       const proj = await resolveProject(project);
       if (!proj.ok) return errorResult(proj.error);
-      const agent = (proj.ctx.framer as unknown as {
-        agent: {
-          listIconSets: () => Promise<unknown>;
-          readIcons: (input: { iconSetName: string }) => Promise<string[]>;
-        };
-      }).agent;
+      const agent = (proj.ctx.framer as unknown as { agent: IconAgent }).agent;
+      const set = setId ?? setName;
       try {
-        if (setName) {
-          return jsonResult({ set: setName, icons: await agent.readIcons({ iconSetName: setName }) });
+        if (set) {
+          return jsonResult({ set, icons: await agent.readIcons({ iconSetId: set }) });
         }
         return jsonResult(await agent.listIconSets());
       } catch (err) {
